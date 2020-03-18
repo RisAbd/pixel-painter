@@ -4,24 +4,35 @@
   <meta charset="utf-8">
   <title>Pixel Painter</title>
   <link rel="stylesheet" type="text/css" href="./style.css">
+  <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/jscolor/2.0.4/jscolor.min.js"></script>
+  <!-- <script type="text/javascript" src="./lib/jscolor.js"></script> -->
+
 </head>
 <body>
   
-  <form id="painter-dimensions">
-    <input type="number" name="height">
-    <input type="number" name="width">
-    <button type="button">Open</button>
+  <form id="painter-tools">
+    <input type="number" name="height" value="12">
+    <input type="number" name="width" value="16">
+    <input type="number" name="cell-height" value="20">
+    <input type="number" name="cell-width" value="20">
+    <input class="jscolor" name="first-color" value="f00">
+    <input class="jscolor" name="second-color" value="000">
+    <button type="button" name="fill">Fill</button>
+    <button type="button" name="clear">Clear</button>
   </form>
   
   <div class="container">
     <pixel-painter 
       id="pixel-painter" 
       width="16" height="12" 
-      cell-width="30px" cell-height="30px"
+      cell-width="20px" cell-height="20px"
+      first-color="#ff0000" second-color="#000000"
       >  
     </pixel-painter>
   </div>
 
+  <textarea id="export-text"></textarea>
+  
   <script src="./pixel-painter.js"></script>
   <script src="./index.js"></script>
 </body>

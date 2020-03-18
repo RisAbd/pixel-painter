@@ -21,10 +21,11 @@ function styleSelector(selector, d = document) {
 
 
 class CellsArray extends Array {
-  constructor(w, h) {
+  constructor(w, h, filler = undefined) {
     w = w || 0;
     h = h || 0;
     super(w*h);
+    this.fill(filler);
     this.width = this.w = w;
     this.height = this.h = h;
   }
@@ -65,11 +66,11 @@ customElements.define('pixel-painter', class PixelPainter extends HTMLElement {
   getWidth() {
     return +this.getAttribute('width');
   }
-  getPencil() {
-    return this.getAttribute('pencil-color') || 'red';
+  getFirstColor() {
+    return this.getAttribute('first-color') || 'red';
   }
-  getEraser() {
-    return this.getAttribute('eraser-color') || 'black';
+  getSecondColor() {
+    return this.getAttribute('second-color') || 'black';
   }
 
   constructor() {
@@ -77,7 +78,7 @@ customElements.define('pixel-painter', class PixelPainter extends HTMLElement {
 
     // model
 
-    this.cells = new CellsArray(this.getWidth(), this.getHeight());
+    this.cells = new CellsArray(this.getWidth(), this.getHeight(), this.getSecondColor());
     this.mouseDownButton = null;
 
     //
@@ -118,17 +119,29 @@ customElements.define('pixel-painter', class PixelPainter extends HTMLElement {
       width: ${cellWidth};
       height: ${cellHeight};
       background-color: black;
-      padding: 1px;
+      margin: 1px;
     }
 
     .cell:hover {
-      border: solid 2px yellow;
-      padding: 0;
+      border: solid 1px yellow;
+      margin: 0;
     }
     `;
 
     shadow.appendChild(style);
 
+    this.renderCells();
+  }
+
+  clear() {
+    this.cells = new CellsArray(this.getWidth(), this.getHeight(), this.getSecondColor());
+    this._dispatchCellUpdate();
+    this.renderCells();
+  }
+
+  fill(color) {
+    this.cells = new CellsArray(this.getWidth(), this.getHeight(), color || this.getFirstColor());
+    this._dispatchCellUpdate();
     this.renderCells();
   }
 
@@ -153,7 +166,7 @@ customElements.define('pixel-painter', class PixelPainter extends HTMLElement {
       cell.classList.toggle('cell');
       cell.dataset.id = i;
       // cell.style.backgroundColor = randomColor();
-      cell.addEventListener('mousemove', this.onCellMove);
+      cell.addEventListener('mouseenter', this.onCellMove);
       cell.addEventListener('click', this.onCellClick);
 
       this.paintCell(cell);
@@ -165,10 +178,9 @@ customElements.define('pixel-painter', class PixelPainter extends HTMLElement {
       prevCellContainer.remove(); 
       const children = prevCellContainer.children;
       for (let i = 0; i < children.length; i++) {
-        children[i].removeEventListener('mousemove', this.onCellMove);
+        children[i].removeEventListener('mouseenter', this.onCellMove);
         children[i].removeEventListener('click', this.onCellClick);
       }
-      console.log(children.length)
     }
 
     shadow.appendChild(cellContainer);
@@ -182,17 +194,23 @@ customElements.define('pixel-painter', class PixelPainter extends HTMLElement {
     const cellId = cell.dataset.id;
 
     if (button === 0) {
-      this.cells[cellId] = this.getPencil();
+      this.cells[cellId] = this.getFirstColor();
       //console.log('select', cellId);
       //cell.style.backgroundColor = 'red';
 
     } else if (button === 2) {
-      this.cells[cellId] = this.getEraser();
+      this.cells[cellId] = this.getSecondColor();
       //console.log('DEselect', cellId);
       //cell.style.backgroundColor = 'black';
     }
 
     this.paintCell(cell);
+
+    this._dispatchCellUpdate()
+  }
+
+  _dispatchCellUpdate() {
+    this.dispatchEvent(new CustomEvent('cellupdate', {detail: {cells: this.cells}}));
   }
 
   onCellClick(e) {
@@ -207,12 +225,10 @@ customElements.define('pixel-painter', class PixelPainter extends HTMLElement {
   }
 
   onMouseDown(e) {
-    console.log('mousedown');
     this.mouseDownButton = e.button;
     this.selectCell(this._lastCell, e.button);
   }
   onMouseUp(e) {
-    console.log('mouseup');
     this.mouseDownButton = null;
   }
 
@@ -235,6 +251,7 @@ customElements.define('pixel-painter', class PixelPainter extends HTMLElement {
       const prevArray = this.cells;
       this.cells = new CellsArray(this.getWidth(), this.getHeight());
       this.cells.copy(prevArray);
+      this._dispatchCellUpdate();
       this.renderCells();
     }
   }

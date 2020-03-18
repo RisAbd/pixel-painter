@@ -1,7 +1,9 @@
 
+
 * {
     box-sizing: border-box;
 }
+
 
 body, html {
     padding: 0;
@@ -9,6 +11,7 @@ body, html {
     height: 100vh;
     width: 100vw;
 }
+
 
 .container {
     width: 100%;
@@ -19,9 +22,45 @@ body, html {
     flex-wrap: wrap;
 }
 
+
 #pixel-painter {
     display: inline-block;
     margin: 0 auto;
     overflow: auto;
     background-color: #272424;
+}
+
+
+#painter-tools {
+    display: grid;
+    grid-auto-columns: 1fr;
+    grid-template-columns: repeat(2, 1fr);
+    width: 140px;
+}
+
+
+#painter-tools > input {
+    width: 100%;
+    border: 1px solid black;
+    font-size: 1rem;
+}
+
+#painter-tools > button {
+    font-size: 1rem;
+    padding: 10px;
+}
+
+
+#painter-tools > input[type=number] {
+    /*height: 20px;*/
+}
+
+
+#painter-tools > .jscolor {
+    height: 50px;
+}
+
+#export-text {
+    width: 100%;
+    height: 12em;
 }
