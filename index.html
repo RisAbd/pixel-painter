@@ -9,31 +9,37 @@
 
 </head>
 <body>
-  
-  <form id="painter-tools">
-    <input type="number" name="height" value="12">
-    <input type="number" name="width" value="16">
-    <input type="number" name="cell-height" value="20">
-    <input type="number" name="cell-width" value="20">
-    <input class="jscolor" name="first-color" value="f00">
-    <input class="jscolor" name="second-color" value="000">
-    <button type="button" name="fill">Fill</button>
-    <button type="button" name="clear">Clear</button>
-  </form>
-  
-  <div class="container">
-    <pixel-painter 
-      id="pixel-painter" 
-      width="16" height="12" 
-      cell-width="20px" cell-height="20px"
-      first-color="#ff0000" second-color="#000000"
-      >  
-    </pixel-painter>
-  </div>
+  <div id="root">
+    <div class="painter-area">
+      <form id="painter-tools">
+        <input type="number" name="height" value="12">
+        <input type="number" name="width" value="16">
+        <input type="number" name="cell-height" value="20">
+        <input type="number" name="cell-width" value="20">
+        <div style="grid-column: span 2; grid-row: span 2; height: 30px;"></div>
+        <input class="jscolor" name="first-color" value="f00">
+        <input class="jscolor" name="second-color" value="000">
+        <button type="button" name="swap-colors">&lt&gt</button>
+        <button type="button" name="inverse">Inverse Colors</button>
+        <button type="button" name="fill">Fill</button>
+        <button type="button" name="clear">Clear</button>
+      </form>
+      
+      <div class="container">
+        <pixel-painter 
+          id="pixel-canvas" 
+          width="16" height="12" 
+          cell-width="20px" cell-height="20px"
+          first-color="#ff0000" second-color="#000000"
+          >  
+        </pixel-painter>
+      </div>
+    </div>
 
-  <textarea id="export-text"></textarea>
-  
-  <script src="./pixel-painter.js"></script>
-  <script src="./index.js"></script>
+    <textarea id="export-text"></textarea>
+    
+    <script src="./pixel-painter.js"></script>
+    <script src="./index.js"></script>
+  <div>
 </body>
 </html>

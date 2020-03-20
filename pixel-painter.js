@@ -25,7 +25,9 @@ class CellsArray extends Array {
     w = w || 0;
     h = h || 0;
     super(w*h);
-    this.fill(filler);
+    if (filler !== undefined) {
+      this.fill(filler);
+    }
     this.width = this.w = w;
     this.height = this.h = h;
   }
@@ -47,10 +49,26 @@ class CellsArray extends Array {
 
   as2D() {
     const r = new Array(this.height);
-    for (let i = 0; i < this.width; i++) {
+    for (let i = 0; i < r.length; i++) {
       r[i] = this.slice(i*this.width, (i+1)*this.width);
     }
     return r;
+  }
+
+  dump(s = false) {
+    const v = {height: this.height, width: this.width, cells: this};
+    if (s) { return JSON.stringify(v); }
+    return v;
+  }
+
+  load(v) {
+    this.splice(0, v.cells.length, ...v.cells);
+  }
+
+  inverseValues() {
+    for (let i = 0; i < this.length; i++) {
+      this[i] = '#'+(parseInt(this[i].slice(1), 16)^0xffffff).toString(16).padStart(6, '0');
+    }
   }
 }
 
@@ -118,13 +136,12 @@ customElements.define('pixel-painter', class PixelPainter extends HTMLElement {
     .cell {
       width: ${cellWidth};
       height: ${cellHeight};
-      background-color: black;
-      margin: 1px;
+      border: 1px solid currentColor;
+      border-radius: 25%;
     }
 
     .cell:hover {
-      border: solid 1px yellow;
-      margin: 0;
+      border: 1px solid yellow;
     }
     `;
 
@@ -141,6 +158,25 @@ customElements.define('pixel-painter', class PixelPainter extends HTMLElement {
 
   fill(color) {
     this.cells = new CellsArray(this.getWidth(), this.getHeight(), color || this.getFirstColor());
+    this._dispatchCellUpdate();
+    this.renderCells();
+  }
+
+  dump() {
+    return this.cells.dump(...arguments); 
+  }
+
+  load(v, s = false) {
+    if (s) { v = JSON.parse(v); }
+    this.setAttribute('height', v.height);
+    this.setAttribute('width', v.width);
+    this.cells = new CellsArray(v.width, v.height);
+    this.cells.load(v);
+    this.renderCells();
+  }
+
+  inverse() {
+    this.cells.inverseValues();
     this._dispatchCellUpdate();
     this.renderCells();
   }
@@ -246,10 +282,9 @@ customElements.define('pixel-painter', class PixelPainter extends HTMLElement {
     } 
     
     if (['height', 'width'].includes(name)) {
-      console.log(name, oldValue, newValue);
       // copy old data to new array
       const prevArray = this.cells;
-      this.cells = new CellsArray(this.getWidth(), this.getHeight());
+      this.cells = new CellsArray(this.getWidth(), this.getHeight(), this.getSecondColor());
       this.cells.copy(prevArray);
       this._dispatchCellUpdate();
       this.renderCells();
