@@ -5,7 +5,7 @@
   <title>Pixel Painter</title>
   <link rel="stylesheet" type="text/css" href="./style.css">
   <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/jscolor/2.0.4/jscolor.min.js"></script>
-  <!-- <script type="text/javascript" src="./lib/jscolor.js"></script> -->
+  <!-- <script type="text/javascript" src="./lib/jscolor_2_0_4.min.js"></script> -->
 
 </head>
 <body>
@@ -35,7 +35,11 @@
         </pixel-painter>
       </div>
     </div>
-
+    
+    <div class="font-map-wrapper">
+      <span>Char Map</span>
+      <font-map id="font-map" for="pixel-canvas"></font-map>
+    </div>
     <textarea id="export-text"></textarea>
     
     <script src="./pixel-painter.js"></script>

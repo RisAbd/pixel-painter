@@ -101,7 +101,7 @@ customElements.define('pixel-painter', class PixelPainter extends HTMLElement {
 
     //
     this.oncontextmenu = () => false; 
-    const fs = 'onCellClick onCellMove onMouseDown onMouseUp'.split(' ');
+    const fs = 'onCellClick onCellMove onCellLeave onMouseDown onMouseUp onMouseScroll'.split(' ');
     for (let i = 0; i < fs.length; i++) {
       const fn = fs[i];
       this[fn] = this[fn].bind(this);
@@ -109,6 +109,8 @@ customElements.define('pixel-painter', class PixelPainter extends HTMLElement {
 
     this.addEventListener('mousedown', this.onMouseDown);
     document.addEventListener('mouseup', this.onMouseUp);
+
+    this.addEventListener('mousemove', this.onMouseScroll);
 
 
     // view stuff
@@ -150,6 +152,10 @@ customElements.define('pixel-painter', class PixelPainter extends HTMLElement {
     this.renderCells();
   }
 
+  onMouseScroll() {
+
+  }
+
   clear() {
     this.cells = new CellsArray(this.getWidth(), this.getHeight(), this.getSecondColor());
     this._dispatchCellUpdate();
@@ -172,6 +178,7 @@ customElements.define('pixel-painter', class PixelPainter extends HTMLElement {
     this.setAttribute('width', v.width);
     this.cells = new CellsArray(v.width, v.height);
     this.cells.load(v);
+    this._dispatchCellUpdate();
     this.renderCells();
   }
 
@@ -183,9 +190,7 @@ customElements.define('pixel-painter', class PixelPainter extends HTMLElement {
 
   renderCells() {
 
-    const shadow = this.shadowRoot;
-
-    const prevCellContainer = shadow.querySelector('.wrapper');
+    const prevCellContainer = this.shadowRoot.querySelector('.wrapper');
 
     const width = this.getWidth();
     const height = this.getHeight();
@@ -203,6 +208,7 @@ customElements.define('pixel-painter', class PixelPainter extends HTMLElement {
       cell.dataset.id = i;
       // cell.style.backgroundColor = randomColor();
       cell.addEventListener('mouseenter', this.onCellMove);
+      cell.addEventListener('mouseleave', this.onCellLeave);
       cell.addEventListener('click', this.onCellClick);
 
       this.paintCell(cell);
@@ -215,11 +221,12 @@ customElements.define('pixel-painter', class PixelPainter extends HTMLElement {
       const children = prevCellContainer.children;
       for (let i = 0; i < children.length; i++) {
         children[i].removeEventListener('mouseenter', this.onCellMove);
+        children[i].removeEventListener('mouseleave', this.onCellLeave);
         children[i].removeEventListener('click', this.onCellClick);
       }
     }
 
-    shadow.appendChild(cellContainer);
+    this.shadowRoot.appendChild(cellContainer);
   }
 
   paintCell(cell) {
@@ -260,9 +267,18 @@ customElements.define('pixel-painter', class PixelPainter extends HTMLElement {
     }
   }
 
+  onCellLeave(e) {
+    if (this.mouseDownButton !== null) {
+      this.selectCell(e.target, this.mouseDownButton);
+    }
+    this._lastCell = null;
+  }
+
   onMouseDown(e) {
     this.mouseDownButton = e.button;
-    this.selectCell(this._lastCell, e.button);
+    if (this._lastCell) {
+      this.selectCell(this._lastCell, e.button);
+    }
   }
   onMouseUp(e) {
     this.mouseDownButton = null;
@@ -291,3 +307,146 @@ customElements.define('pixel-painter', class PixelPainter extends HTMLElement {
     }
   }
 });
+
+
+
+
+customElements.define('font-map', class FontMap extends HTMLElement {
+    getCharWidth() {
+        return parseInt(this.getAttribute('char-width')) || 10;
+    }
+    getCharHeight() {
+        return parseInt(this.getAttribute('char-height')) || 12;
+    }
+    constructor() {
+        super();
+
+        this._prevSelected = null;
+        this.selectedCharId = null;
+
+        this.pixelPainter = document.getElementById(this.getAttribute('for'));
+
+        this.charMap = (this.getAttribute('char-map') || ' !"#$%&\'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}').split('');
+
+        this.charCells = new Array(this.charMap.length);
+        for (let i = 0; i < this.charCells.length; i++) {
+            this.charCells[i] = new CellsArray(this.getCharWidth(), this.getCharHeight(), '#000000');
+            this.charCells[i].char = this.charMap[i];
+        }
+
+        this.onCellClick = this.onCellClick.bind(this);
+        this.onCellUpdate = this.onCellUpdate.bind(this);
+
+        if (this.pixelPainter) {
+          this.pixelPainter.addEventListener('cellupdate', this.onCellUpdate);
+        }
+
+        const shadow = this.attachShadow({mode: 'open'});
+        
+        const style = document.createElement('style');
+
+        style.textContent = `
+        * {
+          box-sizing: border-box;
+        }
+
+        .wrapper {
+          width: 100%;
+          height: 100%;
+          display: grid;
+          margin: 0 auto;
+          grid-auto-rows: 1fr;
+          grid-template-columns: repeat(12, 1fr);
+        }
+
+        .cell {
+          font-size: 1rem;
+          border: 1px solid currentColor;
+          border-radius: 25%;
+          text-align: center;
+          background-color: white;
+          color: black;
+        }
+
+        .cell:hover {
+          border: 1px solid yellow;
+        }
+
+        .cell[data-selected=true] {
+          color: white;
+          background-color: black;
+        }
+        `;
+
+        shadow.appendChild(style);
+
+        const container = document.createElement('div');
+        container.classList.toggle('wrapper');
+
+        for (let i = 0; i < this.charMap.length; i++) {
+          const cell = document.createElement('button');
+          const char = this.charMap[i];
+
+          cell.classList.toggle('cell');
+          cell.dataset.id = i;
+          cell.innerText = char;
+          // cell.style.backgroundColor = randomColor();
+          cell.addEventListener('click', this.onCellClick);
+
+          container.appendChild(cell)
+        }
+
+        shadow.appendChild(container);
+    }
+
+    load(v, s = false) {
+      if (s) { v = JSON.parse(v); }
+      this.charMap = v.charMap;
+      this.setAttribute('char-width', v.charWidth);
+      this.setAttribute('char-height', v.charHeight);
+      this.charCells = v.charCells.map((e, i) => { 
+        const cells = new CellsArray(e.width, e.height); 
+        cells.load(e); 
+        cells.char = v.charMap[i]; 
+        return cells; 
+      });
+    }
+
+    dump(s = false) {
+      const v = {
+        charMap: this.charMap,
+        charWidth: this.getCharWidth(),
+        charHeight: this.getCharHeight(),
+        charCells: this.charCells.map(e => e.dump(false)),
+      };
+      if (s) { return JSON.stringify(v); }
+      return v;
+    }
+
+    onCellUpdate(e) {
+      if (this.selectedCharId) {
+        this.charCells[this.selectedCharId] = e.detail.cells;
+        this.charCells[this.selectedCharId].char = this.charMap[this.selectedCharId];
+        this._dispatchCharMapUpdated();
+      }
+    }
+
+    _dispatchCharMapUpdated() {
+      this.dispatchEvent(new CustomEvent('charmapupdate', {detail: {charCells: this.charCells}}));
+    }
+
+
+    onCellClick(e) {
+      if (this.pixelPainter) {
+        if (this._prevSelected) {
+          this._prevSelected.dataset.selected = undefined;
+        }
+        this._prevSelected = e.target;
+        e.target.dataset.selected = true;
+        this.selectedCharId= e.target.dataset.id;
+        this.pixelPainter.load(this.charCells[e.target.dataset.id].dump());
+      }
+    }
+});
+
+

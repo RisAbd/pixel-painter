@@ -3,6 +3,7 @@
 
 const pixelPainter = document.querySelector('#pixel-canvas');
 const painterToolsForm = document.querySelector('#painter-tools');
+const fontMap = document.querySelector('#font-map');
 
 painterToolsForm.addEventListener('change', function(e) {
     const name = e.target.name;
@@ -53,12 +54,63 @@ inverseColorsButton.addEventListener('click', function(e) {
 const dataText = document.querySelector('#export-text');
 
 dataText.addEventListener('focus', function(e) {
-    e.target.select();
+    // e.target.select();
     // document.execCommand('copy');
 });
 
-pixelPainter.addEventListener('cellupdate', function(e) {
-    const cells = e.detail.cells;
+// canvas to c array pixel array
+// pixelPainter.addEventListener('cellupdate', function(e) {
+//     const cells = e.detail.cells;
+
+//     function colorToRGBTuple(v) {
+//         if (/\#([0-f0-F]{2}){3}/.test(v)) {
+//             const vs = [v.slice(1, 3), v.slice(3, 5), v.slice(5)]
+//             return vs.map(e => parseInt(e, 16))
+//         } else if (/\#[0-f0-F]{3}/.test(v)) {
+//             return v.split('').slice(1).map(e => e+'0').map(e => parseInt(e, 16))
+//         } else if (/rgb\s?\(\s?\d+\s?,\s?\d+\s?,\s?\d+\s?\)/.test(v)) {
+//             return v.match(/\d+/g).map(parseInt);
+//         } else if (/rgba\s?\(\s?\d+\s?,\s?\d+\s?,\s?\d+\s?\,\s?\d+\s?\)/.test(v)) {
+//             const vs = v.match(/\d+/g).map(parseInt);
+//             return vs.slice(0, 3).map(e => e*v[3]);
+//         } else {
+//             throw new Error(`unknown color format: ${v}`);
+//         }
+//     }
+
+//     function rgbTupleToHexTuple(v) {
+//         return v.map(e => '0x'+e.toString(16));
+//     }
+
+//     function strArray(a) {
+//         return `{${a.join(', ')}}`;
+//     }
+
+//     const rgbTuples = cells
+//         .as2D()
+//         .map(e => '    '+strArray(e.map(colorToRGBTuple).map(rgbTupleToHexTuple).map(strArray)))
+//         .join(',\n');
+
+//     dataText.value = `
+// #define row_count ${cells.height}
+// #define col_count ${cells.width}
+// //#define data_count (col_count*3/8)
+
+// char image[row_count][col_count][3] = {
+// ${rgbTuples}
+// };
+// `
+// });
+
+
+
+
+
+// canvas to font editor
+fontMap.addEventListener('charmapupdate', function(e) {
+    // const cells = e.detail.cells;
+
+    const charCells = e.detail.charCells;
 
     function colorToRGBTuple(v) {
         if (/\#([0-f0-F]{2}){3}/.test(v)) {
@@ -80,23 +132,58 @@ pixelPainter.addEventListener('cellupdate', function(e) {
         return v.map(e => '0x'+e.toString(16));
     }
 
-    function strArray(a) {
-        return `{${a.join(', ')}}`;
+    function toMask(v) {
+        return v.filter(i => i == 0).length === 3 ? '0' : '1'
     }
 
-    const rgbTuples = cells
-        .as2D()
-        .map(e => '    '+strArray(e.map(colorToRGBTuple).map(rgbTupleToHexTuple).map(strArray)))
-        .join(',\n');
+    function flattenBits(cells) {
+        return cells
+            .map(colorToRGBTuple)
+            .map(toMask)
+            .join('');
+    }
 
-    dataText.value = `
-#define row_count ${cells.height}
-#define col_count ${cells.width}
+    function groupToBytes(flatBits) {
+        return new Array(flatBits.length/8).fill(0).map((_, i) => flatBits.slice(i*8, (i+1)*8)).map(e => parseInt(e, 2))
+    }
 
-char image[row_count][col_count][3] = {
-${rgbTuples}
-};
+    function asPythonLiteral(bytes) {
+        return `b'${bytes.map(e => '\\x'+e.toString(16).padStart(2, '0')).join('')}`;
+    }
+
+    function asCCharArray(bytes) {
+        return `{${bytes.map(e => '0x'+e.toString(16).padStart(2, '0')).join(', ')}}`;
+    }
+
+    function withComments(commentChar = '#') {
+        return (v, i) => {
+            return `${v}    ${commentChar} ${charCells[i].char}`;
+        }
+    }
+
+    function zip(...iterables) {
+
+    }
+
+    if (charCells.map(e => e.w*e.h/8).reduce((acc, i) => { acc.add(i); return acc; }, new Set()).size !== 1) {
+        throw new Error("Chars are not same size");
+    }
+
+    const bytesCount = charCells[0].w*charCells[0].h / 8;
+
+    const charBytes = charCells
+        .map(flattenBits)
+        .map(groupToBytes);
+
+    dataText.value = 
+`# ${bytesCount} bytes each char
+
+as python literal: 
+${charBytes.map(asPythonLiteral).map(withComments('#')).join('\n')}
 `
+// as C char array:
+// ${charBytes.map(asCCharArray).join('\n')}
+// `
 });
 
 
@@ -107,6 +194,9 @@ document.addEventListener('DOMContentLoaded', function(e) {
         pixelPainter.load(localStorage.getItem(LOCAL_STORAGE_DUMP_KEY), true);
         painterToolsForm.querySelector('input[name=width]').value = pixelPainter.getAttribute('width');
         painterToolsForm.querySelector('input[name=height]').value = pixelPainter.getAttribute('height');
+    }
+    if (localStorage.hasOwnProperty(LOCAL_STORAGE_DUMP_FONT_MAP_KEY)) {
+        fontMap.load(localStorage.getItem(LOCAL_STORAGE_DUMP_FONT_MAP_KEY), true);
     }
 });
 
@@ -119,14 +209,14 @@ document.addEventListener('visibilitychange', (e) => (document.visibilityState =
 window.addEventListener('beforeunload', dumpCells);
 
 
+const LOCAL_STORAGE_DUMP_FONT_MAP_KEY = `font-map:${LOCAL_STORAGE_DUMP_KEY}`;
 
+function dumpFontMapCells(e) {
+    localStorage.setItem(LOCAL_STORAGE_DUMP_FONT_MAP_KEY, fontMap.dump(true));
+}
 
-
-
-
-
-
-
+document.addEventListener('visibilitychange', (e) => (document.visibilityState === 'hidden' ? dumpFontMapCells(e) : undefined));
+window.addEventListener('beforeunload', dumpFontMapCells);
 
 
 
