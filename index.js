@@ -110,7 +110,17 @@ dataText.addEventListener('focus', function(e) {
 fontMap.addEventListener('charmapupdate', function(e) {
     // const cells = e.detail.cells;
 
-    const charCells = e.detail.charCells;
+    const { charCells, charWidth, charHeight } = e.detail;
+
+    const bytesCount = charWidth * charHeight / 8;
+
+    if (!Number.isInteger(bytesCount)) {
+       dataText.value = `
+#Error: w (${charWidth}) * h (${charHeight}) / 8 = ${bytesCount}
+#font mask can not be packed into one byte! 
+`;
+        return;
+    }
 
     function colorToRGBTuple(v) {
         if (/\#([0-f0-F]{2}){3}/.test(v)) {
@@ -144,11 +154,11 @@ fontMap.addEventListener('charmapupdate', function(e) {
     }
 
     function groupToBytes(flatBits) {
-        return new Array(flatBits.length/8).fill(0).map((_, i) => flatBits.slice(i*8, (i+1)*8)).map(e => parseInt(e, 2))
+        return new Array(flatBits.length/8).fill(0).map((_, i) => flatBits.slice(i*8, (i+1)*8)).map(e => parseInt(e.split('').reverse().join(''), 2))
     }
 
     function asPythonLiteral(bytes) {
-        return `b'${bytes.map(e => '\\x'+e.toString(16).padStart(2, '0')).join('')}`;
+        return `b'${bytes.map(e => '\\x'+e.toString(16).padStart(2, '0')).join('')}'`;
     }
 
     function asCCharArray(bytes) {
@@ -160,16 +170,6 @@ fontMap.addEventListener('charmapupdate', function(e) {
             return `${v}    ${commentChar} ${charCells[i].char}`;
         }
     }
-
-    function zip(...iterables) {
-
-    }
-
-    if (charCells.map(e => e.w*e.h/8).reduce((acc, i) => { acc.add(i); return acc; }, new Set()).size !== 1) {
-        throw new Error("Chars are not same size");
-    }
-
-    const bytesCount = charCells[0].w*charCells[0].h / 8;
 
     const charBytes = charCells
         .map(flattenBits)

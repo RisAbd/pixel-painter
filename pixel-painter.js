@@ -39,12 +39,18 @@ class CellsArray extends Array {
     this[y*this.width+x] = v;
   }
 
-  copy(another) {
+  copyFrom(another) {
     for (let y = 0; y < Math.min(this.height, another.height); y++) {
       for (let x = 0; x < Math.min(this.width, another.width); x++) {
         this.set(x, y, another.get(x, y));
       }
     }
+  }
+
+  copy() {
+    const r = new CellsArray(this.w, this.h);
+    r.splice(0, this.length, ...this);
+    return r;
   }
 
   as2D() {
@@ -178,8 +184,8 @@ customElements.define('pixel-painter', class PixelPainter extends HTMLElement {
     this.setAttribute('width', v.width);
     this.cells = new CellsArray(v.width, v.height);
     this.cells.load(v);
-    this._dispatchCellUpdate();
     this.renderCells();
+    this._dispatchCellUpdate();
   }
 
   inverse() {
@@ -298,10 +304,10 @@ customElements.define('pixel-painter', class PixelPainter extends HTMLElement {
     } 
     
     if (['height', 'width'].includes(name)) {
-      // copy old data to new array
+      // copyFrom old data to new array
       const prevArray = this.cells;
       this.cells = new CellsArray(this.getWidth(), this.getHeight(), this.getSecondColor());
-      this.cells.copy(prevArray);
+      this.cells.copyFrom(prevArray);
       this._dispatchCellUpdate();
       this.renderCells();
     }
@@ -312,141 +318,223 @@ customElements.define('pixel-painter', class PixelPainter extends HTMLElement {
 
 
 customElements.define('font-map', class FontMap extends HTMLElement {
-    getCharWidth() {
-        return parseInt(this.getAttribute('char-width')) || 10;
+
+  static get observedAttributes() {
+    return ['char-width', 'char-height'];
+  }
+  attributeChangedCallback(name, oldValue, newValue) {
+    // if (oldValue === newValue || oldValue === null) {
+    //   return;
+    // }
+    if (['char-width', 'char-height'].includes(name)) {
+      this.shadowRoot.querySelector(`input[name="${name.replace('char-', '')}"]`).value = newValue;
     }
-    getCharHeight() {
-        return parseInt(this.getAttribute('char-height')) || 12;
-    }
-    constructor() {
-        super();
+  }
 
-        this._prevSelected = null;
-        this.selectedCharId = null;
+  getCharWidth() {
+    return parseInt(this.getAttribute('char-width')) || 10;
+  }
+  getCharHeight() {
+    return parseInt(this.getAttribute('char-height')) || 12;
+  }
+  constructor() {
+    super();
 
-        this.pixelPainter = document.getElementById(this.getAttribute('for'));
+    this._prevSelected = null;
+    this.selectedCharId = null;
 
-        this.charMap = (this.getAttribute('char-map') || ' !"#$%&\'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}').split('');
+    this.pixelPainter = document.getElementById(this.getAttribute('for'));
 
-        this.charCells = new Array(this.charMap.length);
-        for (let i = 0; i < this.charCells.length; i++) {
-            this.charCells[i] = new CellsArray(this.getCharWidth(), this.getCharHeight(), '#000000');
-            this.charCells[i].char = this.charMap[i];
-        }
+    this.charMap = (this.getAttribute('char-map') || ' !"#$%&\'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}').split('');
 
-        this.onCellClick = this.onCellClick.bind(this);
-        this.onCellUpdate = this.onCellUpdate.bind(this);
-
-        if (this.pixelPainter) {
-          this.pixelPainter.addEventListener('cellupdate', this.onCellUpdate);
-        }
-
-        const shadow = this.attachShadow({mode: 'open'});
-        
-        const style = document.createElement('style');
-
-        style.textContent = `
-        * {
-          box-sizing: border-box;
-        }
-
-        .wrapper {
-          width: 100%;
-          height: 100%;
-          display: grid;
-          margin: 0 auto;
-          grid-auto-rows: 1fr;
-          grid-template-columns: repeat(12, 1fr);
-        }
-
-        .cell {
-          font-size: 1rem;
-          border: 1px solid currentColor;
-          border-radius: 25%;
-          text-align: center;
-          background-color: white;
-          color: black;
-        }
-
-        .cell:hover {
-          border: 1px solid yellow;
-        }
-
-        .cell[data-selected=true] {
-          color: white;
-          background-color: black;
-        }
-        `;
-
-        shadow.appendChild(style);
-
-        const container = document.createElement('div');
-        container.classList.toggle('wrapper');
-
-        for (let i = 0; i < this.charMap.length; i++) {
-          const cell = document.createElement('button');
-          const char = this.charMap[i];
-
-          cell.classList.toggle('cell');
-          cell.dataset.id = i;
-          cell.innerText = char;
-          // cell.style.backgroundColor = randomColor();
-          cell.addEventListener('click', this.onCellClick);
-
-          container.appendChild(cell)
-        }
-
-        shadow.appendChild(container);
+    this.charCells = new Array(this.charMap.length);
+    for (let i = 0; i < this.charCells.length; i++) {
+        this.charCells[i] = new CellsArray(this.getCharWidth(), this.getCharHeight(), '#000000');
+        this.charCells[i].char = this.charMap[i];
     }
 
-    load(v, s = false) {
-      if (s) { v = JSON.parse(v); }
-      this.charMap = v.charMap;
-      this.setAttribute('char-width', v.charWidth);
-      this.setAttribute('char-height', v.charHeight);
-      this.charCells = v.charCells.map((e, i) => { 
-        const cells = new CellsArray(e.width, e.height); 
-        cells.load(e); 
-        cells.char = v.charMap[i]; 
-        return cells; 
-      });
+    this.onCellClick = this.onCellClick.bind(this);
+    this.onCellUpdate = this.onCellUpdate.bind(this);
+    this.onSizeChange = this.onSizeChange.bind(this);
+
+    if (this.pixelPainter) {
+      this.pixelPainter.addEventListener('cellupdate', this.onCellUpdate);
     }
 
-    dump(s = false) {
-      const v = {
-        charMap: this.charMap,
-        charWidth: this.getCharWidth(),
-        charHeight: this.getCharHeight(),
-        charCells: this.charCells.map(e => e.dump(false)),
-      };
-      if (s) { return JSON.stringify(v); }
-      return v;
+    const shadow = this.attachShadow({mode: 'open'});
+    
+    const style = document.createElement('style');
+
+    style.textContent = `
+    * {
+      box-sizing: border-box;
     }
 
-    onCellUpdate(e) {
-      if (this.selectedCharId) {
-        this.charCells[this.selectedCharId] = e.detail.cells;
-        this.charCells[this.selectedCharId].char = this.charMap[this.selectedCharId];
-        this._dispatchCharMapUpdated();
+    .wrapper {
+      width: 100%;
+      height: 100%;
+      display: grid;
+      margin: 0 auto;
+      grid-auto-rows: 1fr;
+      grid-template-columns: repeat(12, 1fr);
+    }
+
+    .sizes {
+      background-color: lightblue;
+      grid-column: span 12;
+      display: flex;
+    }
+
+    .sizes > label {
+      flex-grow: 1;
+      margin-left: 5px;
+    }
+
+    .sizes > label > input {
+      width: 100px;
+      float: right:
+    }
+
+    .cell {
+      font-size: 1rem;
+      border: 1px solid currentColor;
+      border-radius: 25%;
+      text-align: center;
+      background-color: white;
+      color: black;
+    }
+
+    .cell:hover {
+      border: 1px solid yellow;
+    }
+
+    .cell[data-selected=true] {
+      color: white;
+      background-color: black;
+    }
+    `;
+
+    shadow.appendChild(style);
+
+    const container = document.createElement('div');
+    container.classList.toggle('wrapper');
+
+    const fontSizeForm = document.createElement('form');
+
+    fontSizeForm.innerHTML = `
+<label>width: 
+<input name="width" value="${this.getCharWidth()}" type="number">
+</label>
+<label>height: 
+<input name="height" value="${this.getCharHeight()}" type="number">
+</label>
+`;
+    fontSizeForm.classList.toggle('sizes');
+    fontSizeForm.addEventListener('change', this.onSizeChange);
+
+    container.appendChild(fontSizeForm);
+
+    this._cellElements = this.charMap.map((char, i) => {
+      const cell = document.createElement('button');
+
+      cell.classList.toggle('cell');
+      cell.dataset.id = i;
+      cell.innerText = char;
+      // cell.style.backgroundColor = randomColor();
+      cell.addEventListener('click', this.onCellClick);
+
+      container.appendChild(cell);
+
+      return cell;
+    });
+
+    shadow.appendChild(container);
+  }
+
+  load(v, s = false) {
+    if (s) { v = JSON.parse(v); }
+    this.charMap = v.charMap;
+    this.setAttribute('char-width', v.charWidth);
+    this.setAttribute('char-height', v.charHeight);
+    this.charCells = v.charCells.map((e, i) => { 
+      const cells = new CellsArray(e.width, e.height); 
+      cells.load(e); 
+      cells.char = v.charMap[i]; 
+      return cells; 
+    });
+    if (this.pixelPainter && v.selectedCharId !== null) {
+      this._selectCharById(v.selectedCharId);
+    }
+  }
+
+  dump(s = false) {
+    const v = {
+      charMap: this.charMap,
+      charWidth: this.getCharWidth(),
+      charHeight: this.getCharHeight(),
+      charCells: this.charCells.map(e => e.dump(false)),
+      selectedCharId: this.selectedCharId,
+    };
+    if (s) { return JSON.stringify(v); }
+    return v;
+  }
+
+  onSizeChange(e) {
+    const { target } = e;
+
+    this.setAttribute('char-'+target.name, target.value);
+
+    for (let i = 0; i < this.charCells.length; i++) {
+      const newCells = new CellsArray(this.getCharWidth(), this.getCharHeight(), '#000000');
+      newCells.copyFrom(this.charCells[i]);
+      newCells.char = this.charMap[i];
+      this.charCells[i] = newCells;
+    }
+
+    if (this.pixelPainter && this.selectedCharId !== null) {
+      this._selectCharById(this.selectedCharId);
+    }
+
+    this._dispatchCharMapUpdated();
+  }
+
+  onCellUpdate(e) {
+    if (this.selectedCharId) {
+      this.charCells[this.selectedCharId] = e.detail.cells.copy();
+      this.charCells[this.selectedCharId].char = this.charMap[this.selectedCharId];
+    }
+  }
+
+  _dispatchCharMapUpdated() {
+    this.dispatchEvent(new CustomEvent('charmapupdate', {detail: {charWidth: this.getCharWidth(), charHeight: this.getCharHeight(), charCells: this.charCells}}));
+  }
+
+
+  onCellClick(e) {
+    if (this.pixelPainter) {
+      if (this._prevSelected) {
+        this._prevSelected.dataset.selected = undefined;
+        if (this._prevSelected.dataset.id === e.target.dataset.id) {
+          this._prevSelected = null;
+          this.selectedCharId = null;
+          return;
+        }
       }
-    }
 
-    _dispatchCharMapUpdated() {
-      this.dispatchEvent(new CustomEvent('charmapupdate', {detail: {charCells: this.charCells}}));
+      this._prevSelected = e.target;
+      this._selectCharById(e.target.dataset.id);
     }
+  }
 
-
-    onCellClick(e) {
-      if (this.pixelPainter) {
-        if (this._prevSelected) {
-          this._prevSelected.dataset.selected = undefined;
-        }
-        this._prevSelected = e.target;
-        e.target.dataset.selected = true;
-        this.selectedCharId= e.target.dataset.id;
-        this.pixelPainter.load(this.charCells[e.target.dataset.id].dump());
-      }
-    }
+  _selectCharById(id) {
+    const cellEl = this._cellElements[id];
+    cellEl.dataset.selected = true;
+    this._prevSelected = cellEl;
+    this.selectedCharId = id;
+    this.pixelPainter.removeEventListener('cellupdate', this.onCellUpdate);
+    this.pixelPainter.load(this.charCells[id].dump());
+    this.pixelPainter.addEventListener('cellupdate', this.onCellUpdate);
+  }
 });
 
 
