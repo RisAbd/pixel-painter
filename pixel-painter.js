@@ -502,6 +502,7 @@ customElements.define('font-map', class FontMap extends HTMLElement {
     if (this.selectedCharId) {
       this.charCells[this.selectedCharId] = e.detail.cells.copy();
       this.charCells[this.selectedCharId].char = this.charMap[this.selectedCharId];
+      this._dispatchCharMapUpdated();
     }
   }
 
