@@ -53,8 +53,10 @@ function gradient(n, ...colors) {
 function createRowElement(n, ...colors) {
   const row = document.createElement('div');
   row.classList.toggle('row');
+
+  const asCss = ([r,g,b]) => `rgb(${r}, ${g}, ${b})`;
   
-  const grades = gradient(n, ...colors).map(([r,g,b]) => `rgb(${r}, ${g}, ${b})`);
+  const grades = gradient(n, ...colors).map(asCss);
 
   for (let i = 0; i < n; i++) {
     const cell = document.createElement('div');
@@ -62,7 +64,30 @@ function createRowElement(n, ...colors) {
     cell.style.backgroundColor = grades[i];
     row.appendChild(cell);
   }
+
+
+  const labelBlock = document.createElement('span');
+  labelBlock.innerText = 'util: ' + colors.map(String).join(' > ');
+  labelBlock.style.position = 'absolute';
+  row.appendChild(labelBlock);
+
+  const compareRow = document.createElement('div');
+  compareRow.classList.toggle('row');
+  compareRow.classList.toggle('js');
+  compareRow.innerText = 'js native';
+  if (colors.length === 1) {
+    compareRow.style.backgroundColor = asCss(colors[0]);
+  } else {
+    compareRow.style.background = `linear-gradient(to right, ${colors.map(asCss).join(', ')})`;
+  }
+  root.appendChild(compareRow);
+
   root.appendChild(row);
+
+  const spacer = document.createElement('div');
+  spacer.classList.toggle('spacer');
+  root.appendChild(spacer);
+
   return row;
 }
 
@@ -72,4 +97,4 @@ createRowElement(100, [0,255,255], [255,0,0]);
 createRowElement(100, [255,255,255], [0,0,0]);
 createRowElement(100, [0,0,255]);
 createRowElement(100, [255,0,0], [0,255,0], [0,0,255]);
-createRowElement(100, [0,0,0], [255,0,0], [0,255,0], [0,0,255], [255,255,255]);
+createRowElement(100, [255,255,255], [255,0,0], [0,255,0], [0,0,255], [0,0,0]);
