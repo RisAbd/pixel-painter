@@ -345,7 +345,7 @@ customElements.define('font-map', class FontMap extends HTMLElement {
 
     this.pixelPainter = document.getElementById(this.getAttribute('for'));
 
-    this.charMap = (this.getAttribute('char-map') || ' !"#$%&\'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}').split('');
+    this.charMap = (this.getAttribute('char-map') || ' !"#$%&\'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~').split('');
 
     this.charCells = new Array(this.charMap.length);
     for (let i = 0; i < this.charCells.length; i++) {
@@ -453,13 +453,13 @@ customElements.define('font-map', class FontMap extends HTMLElement {
 
   load(v, s = false) {
     if (s) { v = JSON.parse(v); }
-    this.charMap = v.charMap;
+    // this.charMap = v.charMap;
     this.setAttribute('char-width', v.charWidth);
     this.setAttribute('char-height', v.charHeight);
     this.charCells = v.charCells.map((e, i) => { 
       const cells = new CellsArray(e.width, e.height); 
       cells.load(e); 
-      cells.char = v.charMap[i]; 
+      cells.char = this.charMap[i]; // v.charMap[i]; 
       return cells; 
     });
     if (this.pixelPainter && v.selectedCharId !== null) {
@@ -527,13 +527,22 @@ customElements.define('font-map', class FontMap extends HTMLElement {
     }
   }
 
+  _getCharCells(id) {
+    if (this.charCells[id]) {
+      return this.charCells[id];
+    }
+    const nc = new CellsArray(this.getCharWidth(), this.getCharHeight(), '#000000');
+    nc.char = this.charMap[id];
+    return nc;
+  }
+
   _selectCharById(id) {
     const cellEl = this._cellElements[id];
     cellEl.dataset.selected = true;
     this._prevSelected = cellEl;
     this.selectedCharId = id;
     this.pixelPainter.removeEventListener('cellupdate', this.onCellUpdate);
-    this.pixelPainter.load(this.charCells[id].dump());
+    this.pixelPainter.load(this._getCharCells(id).dump());
     this.pixelPainter.addEventListener('cellupdate', this.onCellUpdate);
   }
 });

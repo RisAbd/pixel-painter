@@ -146,7 +146,7 @@ fontMap.addEventListener('charmapupdate', function(e) {
         return v.filter(i => i == 0).length === 3 ? '0' : '1'
     }
 
-    function flattenBits(cells) {
+    function asMaskBits(cells) {
         return cells
             .map(colorToRGBTuple)
             .map(toMask)
@@ -172,7 +172,7 @@ fontMap.addEventListener('charmapupdate', function(e) {
     }
 
     const charBytes = charCells
-        .map(flattenBits)
+        .map(asMaskBits)
         .map(groupToBytes);
 
     dataText.value = 
