@@ -113,14 +113,14 @@ fontMap.addEventListener('charmapupdate', function(e) {
     const { charCells, charWidth, charHeight } = e.detail;
 
     const bytesCount = charWidth * charHeight / 8;
-
-    if (!Number.isInteger(bytesCount)) {
-       dataText.value = `
-#Error: w (${charWidth}) * h (${charHeight}) / 8 = ${bytesCount}
-#font mask can not be packed into one byte! 
-`;
-        return;
-    }
+//
+//    if (!Number.isInteger(bytesCount)) {
+//       dataText.value = `
+//#Error: w (${charWidth}) * h (${charHeight}) / 8 = ${bytesCount}
+//#font mask can not be packed into one byte!
+//`;
+//        return;
+//    }
 
     function colorToRGBTuple(v) {
         if (/\#([0-f0-F]{2}){3}/.test(v)) {
@@ -154,7 +154,11 @@ fontMap.addEventListener('charmapupdate', function(e) {
     }
 
     function groupToBytes(flatBits) {
-        return new Array(flatBits.length/8).fill(0).map((_, i) => flatBits.slice(i*8, (i+1)*8)).map(e => parseInt(e.split('').reverse().join(''), 2))
+        // add padding bits
+        const paddedBits = flatBits + new Array(flatBits.length % 8).fill('0').join('')
+        return new Array(paddedBits.length/8).fill(0)
+            .map((_, i) => paddedBits.slice(i*8, (i+1)*8))
+            .map(e => parseInt(e.split('').reverse().join(''), 2))
     }
 
     function asPythonLiteral(bytes) {
