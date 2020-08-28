@@ -112,7 +112,7 @@ fontMap.addEventListener('charmapupdate', function(e) {
 
     const { charCells, charWidth, charHeight } = e.detail;
 
-    const bytesCount = charWidth * charHeight / 8;
+    const bytesCount = Math.ceil(charWidth * charHeight / 8);
 //
 //    if (!Number.isInteger(bytesCount)) {
 //       dataText.value = `
